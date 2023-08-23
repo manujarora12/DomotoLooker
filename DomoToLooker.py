@@ -1,59 +1,78 @@
 import requests
+import pretty_errors
 import json
-from sdk import DOMO_sdk, LOOKER_sdk
+from looker_sdk import models as sdk_models
+from helper.domo_helper import *
+import os
+from dotenv import load_dotenv
+load_dotenv("/Users/manujarora/Shared/Custom Reports/.env")
+from constants import *
+import looker_sdk 
+import os 
+import json
+from helper.domo_helper import get_card_metadata, get_session_token
+from helper.format_helper import reformat_metadata
 
+sdk = looker_sdk.init40()
 
 class DomoToLooker:
-    domo_sdk = DOMO_sdk
-    looker_sdk = lOOKER_sdk
-   
-    def retrieve_metadata_from_domo(cls, domo_report_id):
-        # retrieve report metadata from DOMO using API
-        # Dummy code,
-        response = requests.get(domo_report_id)
-        metadata = response.json()
-        return metadata
+    def __init__(self):
+        self.domo_token = None
+        self.domo_instance = None
+        self.card_metadata = None
+        self.refrmt_metadata = None
+        self.query = None
     
-    @staticmethod
-    def process_metadata_from_domo(metadata):
-        # identify and parse the useful metadata from the response
-        return metadata
+    def create_domo_token(self, domo_instance):
+        email = os.environ["EMAIL"]
+        password = os.environ["PASSWORD"]
+        self.domo_instance=domo_instance
+        self.domo_token = get_session_token(domo_instance=self.domo_instance, email=email, password=password)
+   
+    def retrieve_metadata_from_domo(self, domo_report_id):
+        self.card_metadata=get_card_metadata(self.domo_instance, domo_report_id, self.domo_token)
+    
+    def process_metadata_from_domo(self):
+        self.refrmt_metadata = reformat_metadata(self.card_metadata[0])
+        return self.refrmt_metadata
 
-    @staticmethod
-    def generate_sql_from_metadata(metadata):
-        # parse the received JSON metadata and construct the equivalent SQL query.
-        # you may need to handle for ITEM, VALUE, SERIES mappings, and LEGACY filter and NOT_IN operand.
-        # implement logic to construct GROUP BY and ORDER BY clauses.
-        sql_query = ''  # create your sql query here based on the metadata
-        return sql_query
-
-    @staticmethod
-    def convert_sql_for_looker(sql_query):
-        # convert the constructed SQL query into Looker-friendly syntax, replacing table and field names if necessary.
-        looker_sql = ''  # replace with the logic to convert DOMO SQL to Looker SQL
-        return looker_sql
-
-    @staticmethod
-    def execute_sql_in_looker(looker_api_endpoint, looker_sql):
-        # execute the SQL query within Looker and verify the data is appearing as expected.
-        # Dummy code, replace with actual API call
-        response = requests.post(looker_api_endpoint, data={'sql': looker_sql})
-        result = response.json()
-        return result
-
-    @staticmethod
-    def create_look_in_looker(looker_api_endpoint, looker_sql_result):
-        # create a new Look (saved report) in Looker using API.
-        # Dummy code, replace with actual API call
-        look_creation_response = requests.post(looker_api_endpoint, data={'data': looker_sql_result})
-        if look_creation_response.status_code == 200:
-            print('Look created in Looker')
+    def generate_query_from_metadata(self):
+        print(f"""                                   model="concord",
+                                        view={str(self.refrmt_metadata['view'])},
+                                        fields={self.refrmt_metadata['fields']},
+                                        filters={self.refrmt_metadata['filters']},
+                                        pivots={self.refrmt_metadata['pivots']},
+                                        dynamic_fields={self.refrmt_metadata.get('dynamic_fields')}
+        
+        """)
+        query = sdk.create_query(
+            body=sdk_models.WriteQuery(
+                                        model="concord",
+                                        view=str(self.refrmt_metadata['view']),
+                                        fields=self.refrmt_metadata['fields'],
+                                        filters=self.refrmt_metadata['filters'],
+                                        pivots=self.refrmt_metadata['pivots'],
+                                        dynamic_fields=self.refrmt_metadata.get('dynamic_fields')
+                                        )
+                        )
+        self.query = query 
+    
+    def create_look_in_looker(self, folder_id=None):
+        look = sdk.create_look(
+                    body=sdk_models.WriteLookWithQuery(
+                                        title=self.refrmt_metadata['title'],
+                                        query_id=self.query.id,
+                                        folder_id=folder_id
+                                                    )
+                                )
+        return look
 
 # using the above class
 domo_to_looker = DomoToLooker()
-domo_metadata = domo_to_looker.retrieve_metadata_from_domo('domo_api_endpoint_here')
-sql_query = domo_to_looker.generate_sql_from_metadata(domo_metadata)
-looker_sql = domo_to_looker.convert_sql_for_looker(sql_query)
-result = domo_to_looker.execute_sql_in_looker('looker_api_endpoint_here', looker_sql)
-
-domo_to_looker.create_look_in_looker('looker_api_endpoint_here', result)
+domo_to_looker.create_domo_token("edcast-535")
+domo_to_looker.retrieve_metadata_from_domo('950212126')
+#print(domo_to_looker.card_metadata)
+looker_meta = domo_to_looker.process_metadata_from_domo()
+domo_to_looker.generate_query_from_metadata()
+#print(domo_to_looker.refrmt_metadata)
+domo_to_looker.create_look_in_looker(folder_id='3599')
