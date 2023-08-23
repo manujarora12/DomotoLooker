@@ -69,10 +69,11 @@ class DomoToLooker:
 
 # using the above class
 domo_to_looker = DomoToLooker()
-domo_to_looker.create_domo_token("edcast-535")
-domo_to_looker.retrieve_metadata_from_domo('950212126')
+domo_to_looker.create_domo_token("edcast-558")
+#domo_to_looker.create_domo_token("edcast-535")
+domo_to_looker.retrieve_metadata_from_domo('890631254')
 #print(domo_to_looker.card_metadata)
 looker_meta = domo_to_looker.process_metadata_from_domo()
 domo_to_looker.generate_query_from_metadata()
 #print(domo_to_looker.refrmt_metadata)
-domo_to_looker.create_look_in_looker(folder_id='3599')
+domo_to_looker.create_look_in_looker(folder_id='3630')

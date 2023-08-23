@@ -1,5 +1,6 @@
 from constants import domo_bq_map
 import json
+import re
 
 def reformat_metadata(response):
     # identify and parse the useful metadata from the response
@@ -8,7 +9,10 @@ def reformat_metadata(response):
     looker_metadata['chartType']=  response['metadata']['chartType']
     looker_metadata['domoId']= response['subscriptions'][0]['cardId']
     try:
-        looker_metadata['view'] = domo_bq_map.get(response['subscriptions'][0]['dataSourceName'])
+        looker_metadata['view'] = domo_bq_map.get(
+            trim_orgid(response['subscriptions'][0]['dataSourceName'])
+                                                )
+        print(f"response is {response['subscriptions'][0]} and looker view {looker_metadata['view']} and {trim_orgid(response['subscriptions'][0]['dataSourceName'])}")
     except:
         print(f"No view found for the given datasource{response['subscriptions'][0]['dataSourceName']}")
         return None
@@ -39,8 +43,12 @@ def columns_to_fields(columns,view):
             #check for date columns
             if 'time' in item.get("column").lower() or "_at" in item.get("column").lower():
                 fields.append(view+"."+item['column'].replace(" ","_").lower()+"_date")
+            elif "CalendarMonth"==item.get("column"):
+                fields.append(view+"."+"time_month")
             elif item.get("aggregation"):
                 fields.append(view+"."+item.get("aggregation").lower()+"_"+item['column'].replace(" ","_").lower())
+                # variation 2"ch2_channel_performance_part2_final_results_vw.count_of_performance_metric"
+                fields.append(view+"."+item.get("aggregation").lower()+"_of"+"_"+item['column'].replace(" ","_").lower())
             else:
                 fields.append(view+"."+item['column'].replace(" ","_").lower())
         else:
@@ -133,3 +141,10 @@ def groupby_to_pivot(groupby,view):
             print(item)
     return pivots
 
+def trim_orgid(n, is_bool=False):
+    ns = re.sub(r"^\d+", "", n) # removed all the number from the begining
+    ns = re.sub(r"^\_+", "", ns) # removed _ from the begining
+    ns = re.sub(r"^Glue_", "", ns) # removed Glue_ from the begining
+    ns = re.sub(r"^Glue", "", ns) # removed Glue_ from the begining
+    ns = ns.lstrip(' ')
+    return ns
