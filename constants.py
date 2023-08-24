@@ -48,6 +48,7 @@ domo_bq_map = {
   "Groups [G][3] [Group Performance Data Explorer]": "g3_groups_performance_data_explorer_vw",
   "Groups [G][3] [Search User Details]": "g3_groups_search_user_details_vw",
   "Groups [G][3] [Skills & Learning Goals]": "g3_groups_skills_learninggoals_vw",
+  "Users [U][2] [Skills & Learning Goals]":"u2_users_skills_learninggoals_vw",
   "Groups [G][3] [Structured Content Performance Data Explorer]": "g3_groups_structured_content_performance_data_explorer_vw",
   "Groups [G][3] [Structured Journey Progression Data Explorer]": "g3_groups_structured_journey_progression_data_explorer_vw",
   "Groups [G][4] [Structured Journey Progression Overview]": "g4_groups_structured_journey_progression_overview_vw",
