@@ -9,6 +9,7 @@ def reformat_metadata(response):
     looker_metadata['chartType']=  response['metadata']['chartType']
     looker_metadata['domoId']= response['subscriptions'][0]['cardId']
     try:
+        # looker_metadata['view'] = "u3_users_structured_content_performance_data_explorer_vw"
         looker_metadata['view'] = domo_bq_map.get(
             trim_orgid(response['subscriptions'][0]['dataSourceName'])
                                                 )
@@ -55,6 +56,7 @@ def columns_to_fields(columns,view):
             print(item)
     return fields
 
+#TODO: Content status to card state
 def filter_to_dict(filter,view,comparison:str='operand',dynamic_fields=[]):
     filters ={}
     for item in filter:
@@ -99,6 +101,12 @@ def filter_to_dict(filter,view,comparison:str='operand',dynamic_fields=[]):
 #                value = [item['values'][0].replace('\"',"%")]
                 value = f"%{item['values'][0]}%"
                 filters[view+"."+item['column'].replace(" ","_").lower()]=value
+            
+
+            elif item[comparison]=="STARTS_WITH":
+                value = f"{item['values'][0]}%"
+                filters[view+"."+item['column'].replace(" ","_").lower()]=value
+            
             
             elif item[comparison] == "NOT_IN":
                 # check if comparison with space or two spaces then replace with empty
@@ -148,3 +156,5 @@ def trim_orgid(n, is_bool=False):
     ns = re.sub(r"^Glue", "", ns) # removed Glue_ from the begining
     ns = ns.lstrip(' ')
     return ns
+
+

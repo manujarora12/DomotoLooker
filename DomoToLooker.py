@@ -13,7 +13,6 @@ import json
 from helper.domo_helper import get_card_metadata, get_session_token
 from helper.format_helper import reformat_metadata
 
-sdk = looker_sdk.init40()
 
 class DomoToLooker:
     def __init__(self):
@@ -22,6 +21,7 @@ class DomoToLooker:
         self.card_metadata = None
         self.refrmt_metadata = None
         self.query = None
+        self.sdk = looker_sdk.init40()
     
     def create_domo_token(self, domo_instance):
         email = os.environ["EMAIL"]
@@ -45,7 +45,7 @@ class DomoToLooker:
                                         dynamic_fields={self.refrmt_metadata.get('dynamic_fields')}
         
         """)
-        query = sdk.create_query(
+        query = self.sdk.create_query(
             body=sdk_models.WriteQuery(
                                         model="concord",
                                         view=str(self.refrmt_metadata['view']),
@@ -58,7 +58,7 @@ class DomoToLooker:
         self.query = query 
     
     def create_look_in_looker(self, folder_id=None):
-        look = sdk.create_look(
+        look = self.sdk.create_look(
                     body=sdk_models.WriteLookWithQuery(
                                         title=self.refrmt_metadata['title'],
                                         query_id=self.query.id,
@@ -68,12 +68,12 @@ class DomoToLooker:
         return look
 
 # using the above class
-domo_to_looker = DomoToLooker()
-domo_to_looker.create_domo_token("edcast-558")
-#domo_to_looker.create_domo_token("edcast-535")
-domo_to_looker.retrieve_metadata_from_domo('890631254')
-#print(domo_to_looker.card_metadata)
-looker_meta = domo_to_looker.process_metadata_from_domo()
-domo_to_looker.generate_query_from_metadata()
-#print(domo_to_looker.refrmt_metadata)
-domo_to_looker.create_look_in_looker(folder_id='3630')
+# domo_to_looker = DomoToLooker()
+# domo_to_looker.create_domo_token("edcast-558")
+# domo_to_looker.retrieve_metadata_from_domo('766491542')
+# print(domo_to_looker.card_metadata)
+# looker_meta = domo_to_looker.process_metadata_from_domo()
+# domo_to_looker.generate_query_from_metadata()
+# #print(domo_to_looker.refrmt_metadata)
+# domo_to_looker.create_look_in_looker(folder_id='3630')
+
