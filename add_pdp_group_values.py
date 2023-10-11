@@ -202,11 +202,10 @@ for i, pdp_read in df.iterrows():
     # check if the embed user exist in looker with the email
     if(len(user_ref) > 0):
         # if yes: add the looker embed looker user to the looker group created for this embed looker user
-        print('==== add_user_to_group =====')
-        # print(user_ref.id,' , email = ', user_ref.email, ' , group_name = ', group_ref.name)
+        # print('==== add_user_to_group =====')
         # print(apply_pdp_cl.get_group_users(group_ref.id))
         apply_pdp_cl.add_user_to_group(group_ref.id, user_ref.id)
-        print('==== add_user_to_group =====')
+        # print('==== add_user_to_group =====')
     else:
         print('====not in looker=====')
         u = domo_ds[domo_ds.Email == email]
@@ -220,13 +219,27 @@ for i, pdp_read in df.iterrows():
         apply_pdp_cl.add_user_to_group(group_ref.id, user_ref.id)
         print('====not in looker=====')
     
-    print('domo pdp column name - ',  pdp_read.pdp_filter_name)
-    print('pdp_read',pdp_read)
+    # print('domo pdp column name - ',  pdp_read.pdp_filter_name)
+    # print('pdp_read',pdp_read)
     #   check if the domo pdp value is null/nan, if its null which means this user has all rows enabled for pdp
     if pdp_read.pdp_filter_name is np.nan:
         #   set group attribute val="%" to all the user attributes of the dataset_id for the group_ref
-        # apply_pdp_cl.apply_user_attribute_group_values( u_a_id, g_id, val)
-        print('set group attribute value as "%" for ', email)
+        print('pdp_name ===!!is nan!!==== ', pdp_read.pdp_name)
+        wildcard_att = {k:v for k,v in attribute_mapping.items() if v['dataset_id'] == pdp_read.dataset_id}
+        for k,v in wildcard_att.items():
+            print('wildcard_att == ',wildcard_att)
+            print("===========applying % value to group in attributes===========")
+            print("looker attribute id : ", v['id'])
+            print("looker attribute name : ", k)
+            print("looker group id : ", group_ref.id)
+            print("looker group name : ", group_name)
+            print("looker user id : ", user_ref.id)
+            print("email : ", email)
+            print("pdp field name : ", pdp_read.pdp_filter_name)
+            print("pdp value : ", '%')
+            print("===========applying % value to group in attributes===========")
+            # apply_pdp_cl.apply_user_attribute_group_values( v['id'], group_ref.id, "%")
+
     else: # this is the case where pdp has filter on column
         
         #   create a comprehension of a list which should return 1 user attribute id
@@ -242,9 +255,11 @@ for i, pdp_read in df.iterrows():
         ua_group_val_l = [i for i in ua_group_val_l if str(i['group_id']) == str(group_ref.id)]
         print("after == ua_group_val_l ============ ",ua_group_val_l)
 
-        # if there are no values added for the group of a user len(ua_group_val_l) will be 0
+        # if there are no group and its values added for the attribute, hence len(ua_group_val_l) will be 0
         if len(ua_group_val_l) == 0:
-            print("===========applying values to===========")
+            print('pdp_name ===!!!!!! ua_group_val_l == 0 !!!!!==== ', pdp_read.pdp_name)
+            
+            print("===========adding new group and its  values===========")
             print("looker attribute id : ", u_a_id[0])
             print("looker attribute name : ", u_a_id[1])
             print("looker group id : ", group_ref.id)
@@ -253,25 +268,67 @@ for i, pdp_read in df.iterrows():
             print("email : ", email)
             print("pdp field name : ", pdp_read.pdp_filter_name)
             print("pdp value : ", pdp_read.pdp_value)
-            print("===========applying values to===========")
-            # apply_pdp_cl.apply_user_attribute_group_values( u_a_id[0], group_ref.id, pdp_read.pdp_value)
+            print("===========adding new group and its values===========")
+            # apply_pdp_cl.apply_user_attribute_group_values( v['id'], group_ref.id, "%")
         else:
         # this is the case where there are 1 to many values added for the group of a user
             ua_group_value = ua_group_val_l[0]['value']
             if "'" in ua_group_value:
                 val_to_apply = ua_group_value.split("','")
-                val_to_apply = val_to_apply.split("','")
                 val_to_apply = [i.replace("'", '') for i in val_to_apply ]
                 if pdp_read.pdp_value not in val_to_apply:
                     val_to_apply.append(pdp_read.pdp_value)
                     val_to_apply = ",".join(["'{}'".format(i) for i in val_to_apply])
-                    print("added value applied to multiple vals ==== ", val_to_apply)
+
+                    print("===========concating values to existing===========")
+                    print("looker attribute id : ", u_a_id[0])
+                    print("looker attribute name : ", u_a_id[1])
+                    print("looker group id : ", group_ref.id)
+                    print("looker group name : ", group_name)
+                    print("looker user id : ", user_ref.id)
+                    print("email : ", email)
+                    print("pdp field name : ", pdp_read.pdp_filter_name)
+                    print("pdp value : ", val_to_apply)
+                    print("===========concating values to existing===========")
+                    # apply_pdp_cl.apply_user_attribute_group_values( u_a_id[0], group_ref.id, val_to_apply)
+                else:
+                    print("===========!!!!already presen!!!!===========")
+                    print("looker attribute id : ", u_a_id[0])
+                    print("looker attribute name : ", u_a_id[1])
+                    print("looker group id : ", group_ref.id)
+                    print("looker group name : ", group_name)
+                    print("looker user id : ", user_ref.id)
+                    print("email : ", email)
+                    print("pdp field name : ", pdp_read.pdp_filter_name)
+                    print("existing value : ", ua_group_value)
+                    print("===========!!!!already present!!!!===========")
             else:
                 #   add condition when the domo pdp val is not in the group user attribute value
                 if pdp_read.pdp_value not in ua_group_value:
                     #   combine value
                     val_to_apply = "'{}','{}'".format(ua_group_value,pdp_read.pdp_value)
-                    print("combined value applied ==== ", val_to_apply)
+                    print("===========adding more than 1 values to existing===========")
+                    print("looker attribute id : ", u_a_id[0])
+                    print("looker attribute name : ", u_a_id[1])
+                    print("looker group id : ", group_ref.id)
+                    print("looker group name : ", group_name)
+                    print("looker user id : ", user_ref.id)
+                    print("email : ", email)
+                    print("pdp field name : ", pdp_read.pdp_filter_name)
+                    print("pdp value : ", val_to_apply)
+                    print("===========adding more than 1 values to existing===========")
+                    # apply_pdp_cl.apply_user_attribute_group_values( u_a_id[0], group_ref.id, val_to_apply)
+                else:
+                    print("===========!!!!already presen!!!!===========")
+                    print("looker attribute id : ", u_a_id[0])
+                    print("looker attribute name : ", u_a_id[1])
+                    print("looker group id : ", group_ref.id)
+                    print("looker group name : ", group_name)
+                    print("looker user id : ", user_ref.id)
+                    print("email : ", email)
+                    print("pdp field name : ", pdp_read.pdp_filter_name)
+                    print("existing value : ", ua_group_value)
+                    print("===========!!!!already present!!!!===========")
             #   get group referen ce{hostname}_{emailtest_before_@} 
             #   set the value of this group from the users csv to the looker user attribute
 
