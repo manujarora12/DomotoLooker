@@ -157,7 +157,6 @@ attribute_mapping = {
     'allowed_training_director_100098':{'id':'19', 'field_name':'Training Director', 'dataset_id':pdp_user_details[1]['dataset_id']},
     'allowed_training_lead_100098':{'id':'20', 'field_name':'Training Lead', 'dataset_id':pdp_user_details[1]['dataset_id']},
     'allowed_training_name_100098':{'id':'18', 'field_name':'Training Name', 'dataset_id':pdp_user_details[1]['dataset_id']},
-    'novartis_100098_evaluations_test_trainer_name':{'id':'26', 'field_name':'', 'dataset_id':pdp_user_details[0]['dataset_id']},
     'novartis_100098_evaluations_test_trainer_name_updated':{'id':'27', 'field_name':'Trainer Name Updated', 'dataset_id':pdp_user_details[0]['dataset_id']},
     'novartis_100098_evaluations_test_training_director':{'id':'28', 'field_name':'Training Director', 'dataset_id':pdp_user_details[0]['dataset_id']},
     'novartis_100098_evaluations_test_training_lead':{'id':'29', 'field_name':'Training Lead', 'dataset_id':pdp_user_details[0]['dataset_id']},
@@ -221,36 +220,59 @@ for i, pdp_read in df.iterrows():
         apply_pdp_cl.add_user_to_group(group_ref.id, user_ref.id)
         print('====not in looker=====')
     
-    # u_a_id = {v['id']:v['field_name'] for k,v in attribute_mapping.items()}
-    print('record attribute name - ',  pdp_read.pdp_filter_name)
-    print('pdp_name = ', pdp_read.pdp_name)
+    print('domo pdp column name - ',  pdp_read.pdp_filter_name)
+    print('pdp_read',pdp_read)
+    #   check if the domo pdp value is null/nan, if its null which means this user has all rows enabled for pdp
     if pdp_read.pdp_filter_name is np.nan:
         #   set group attribute val="%" to all the user attributes of the dataset_id for the group_ref
         # apply_pdp_cl.apply_user_attribute_group_values( u_a_id, g_id, val)
         print('set group attribute value as "%" for ', email)
-    else:
-        u_a_id = [v['id'] for k,v in attribute_mapping.items() if (v['dataset_id'] == pdp_read.dataset_id and v['field_name'] == pdp_read.pdp_filter_name) ]
-        print('user attribute ===', u_a_id)
+    else: # this is the case where pdp has filter on column
+        
+        #   create a comprehension of a list which should return 1 user attribute id
+        #   iterates over all the attribute_mapping 
+        #   has condition where attribute_mapping's dataset_id matches with the domo pdp record dataset_id and
+        #   has condition where the  attribute_mapping's field name matches with the domo pdp record field name
+        u_a_id = [{v['id']:k} for k,v in attribute_mapping.items() if (v['dataset_id'] == pdp_read.dataset_id and v['field_name'] == pdp_read.pdp_filter_name) ]
+        u_a_id = list(u_a_id[0].items())[0]
+        
         ua_group_val_l = apply_pdp_cl.get_user_attribute_group_values(u_a_id[0])
         print("ua_group_val_l ============ ",ua_group_val_l)
-        ua_group_val_l = [i for i in ua_group_val_l if i['group_id'] == group_ref.id]
+        
+        ua_group_val_l = [i for i in ua_group_val_l if str(i['group_id']) == str(group_ref.id)]
         print("after == ua_group_val_l ============ ",ua_group_val_l)
-        ua_group_value = ua_group_val_l[0]['value']
-        if "'" in ua_group_value:
-            val_to_apply = ua_group_value.split("','")
-            val_to_apply = val_to_apply.split("','")
-            val_to_apply = [i.replace("'", '') for i in val_to_apply ]
-            if pdp_read.pdp_value not in val_to_apply:
-                val_to_apply.append(pdp_read.pdp_value)
-                val_to_apply = ",".join(["'{}'".format(i) for i in val_to_apply])
-                print("added value applied to multiple vals ==== ", val_to_apply)
+
+        # if there are no values added for the group of a user len(ua_group_val_l) will be 0
+        if len(ua_group_val_l) == 0:
+            print("===========applying values to===========")
+            print("looker attribute id : ", u_a_id[0])
+            print("looker attribute name : ", u_a_id[1])
+            print("looker group id : ", group_ref.id)
+            print("looker group name : ", group_name)
+            print("looker user id : ", user_ref.id)
+            print("email : ", email)
+            print("pdp field name : ", pdp_read.pdp_filter_name)
+            print("pdp value : ", pdp_read.pdp_value)
+            print("===========applying values to===========")
+            # apply_pdp_cl.apply_user_attribute_group_values( u_a_id[0], group_ref.id, pdp_read.pdp_value)
         else:
-            #   add condition when the domo pdp val is not in the group user attribute value
-            if pdp_read.pdp_value not in ua_group_value:
-                #   combine value
-                val_to_apply = "'{}','{}'".format(ua_group_value,pdp_read.pdp_value)
-                print("combined value applied ==== ", val_to_apply)
-        #   get group referen ce{hostname}_{emailtest_before_@} 
-        #   set the value of this group from the users csv to the looker user attribute
+        # this is the case where there are 1 to many values added for the group of a user
+            ua_group_value = ua_group_val_l[0]['value']
+            if "'" in ua_group_value:
+                val_to_apply = ua_group_value.split("','")
+                val_to_apply = val_to_apply.split("','")
+                val_to_apply = [i.replace("'", '') for i in val_to_apply ]
+                if pdp_read.pdp_value not in val_to_apply:
+                    val_to_apply.append(pdp_read.pdp_value)
+                    val_to_apply = ",".join(["'{}'".format(i) for i in val_to_apply])
+                    print("added value applied to multiple vals ==== ", val_to_apply)
+            else:
+                #   add condition when the domo pdp val is not in the group user attribute value
+                if pdp_read.pdp_value not in ua_group_value:
+                    #   combine value
+                    val_to_apply = "'{}','{}'".format(ua_group_value,pdp_read.pdp_value)
+                    print("combined value applied ==== ", val_to_apply)
+            #   get group referen ce{hostname}_{emailtest_before_@} 
+            #   set the value of this group from the users csv to the looker user attribute
 
     
