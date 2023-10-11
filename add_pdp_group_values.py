@@ -13,8 +13,12 @@ import json
 from helper.domo_helper import get_card_metadata, get_session_token
 from helper.format_helper import reformat_metadata
 import pandas as pd
+import numpy as np
+
 
 sdk = looker_sdk.init40()
+sdk_models_4 = looker_sdk.models40
+# print('sdk_models_4 == ', dir(looker_sdk.models40))
 
 class ApplyPDPValues:
     def __init__(self):
@@ -57,9 +61,11 @@ class ApplyPDPValues:
 
     def create_embed_user(self, external_user_id):
         response = sdk.create_embed_user(
-                        body=sdk_models.CreateEmbedUserRequest(
+                        body=sdk_models_4.CreateEmbedUserRequest(
                             external_user_id=external_user_id
                         ))
+        return response
+
     def get_group_users(self, group_id):
         response = sdk.all_group_users(group_id=group_id)
         return response
@@ -69,15 +75,33 @@ class ApplyPDPValues:
             group_id=group_id,
             body=sdk_models.GroupIdForGroupUserInclusion(user_id= user_id))
 
+    def get_all_user_attributes(self):
+        response = sdk.all_user_attributes(fields="id,name,label,type,default_value")
+        return response
+
     def create_domo_token(self, domo_instance):
         email = os.environ["EMAIL"]
         password = os.environ["PASSWORD"]
         self.domo_instance=domo_instance
         self.domo_token = get_session_token(domo_instance=self.domo_instance, email=email, password=password)
    
+    def get_user_attribute_group_values(self, u_a_id):
+        response = sdk.all_user_attribute_group_values(user_attribute_id=u_a_id)
+        return response
+
     def retrieve_metadata_from_domo(self, domo_report_id):
         self.card_metadata=get_card_metadata(self.domo_instance, domo_report_id, self.domo_token)
     
+    def apply_user_attribute_group_values(self, u_a_id, g_id, val):
+        response = sdk.set_user_attribute_group_values(
+                    user_attribute_id=u_a_id,
+                    body=[
+                        mdls.UserAttributeGroupValue(
+                            group_id=g_id,
+                            value=val
+                        )
+                    ])
+
     def process_metadata_from_domo(self):
         self.refrmt_metadata = reformat_metadata(self.card_metadata[0])
         return self.refrmt_metadata
@@ -114,12 +138,48 @@ class ApplyPDPValues:
         return look
 
 
+# =============init=====================
+pdp_user_details = [
+    {'csv_name': 'pdp_filter_Novartis_edcast-574_Evaluations_Test.csv','inst': 'edcast-574','dataset_id':'ca38f90e-66c4-413e-8752-355d93837144'},
+    {'csv_name': 'pdp_filter_Novartis_edcast-574_EvaluationPrograms_Master.csv','inst': 'edcast-574','dataset_id':'5242c432-3861-4818-a61f-3531070b442e'},
+    {'csv_name': 'pdp_filter_Novartis_edcast-574_Evaluation_Programs_ConsolidatedMaster.csv','inst': 'edcast-574','dataset_id':'8de71efb-af96-434c-958d-e194efb4628e'}
+]
+
+
 
 apply_pdp_cl = ApplyPDPValues()
 apply_pdp_cl.hostname = 'novartis' #suffix for group name
 apply_pdp_cl.instance_group_id = '46' #this is important as it will filter out users other than the instance group users
+pdp_cur = pdp_user_details[1]
 
-df = pd.read_csv('pdp_filter_Novartis_edcast-574_Evaluations_Test.csv')
+attribute_mapping = {
+    'allowed_trainer_name_updated_100098':{'id':'22', 'field_name':'Trainer Name Updated', 'dataset_id':pdp_user_details[1]['dataset_id']},
+    'allowed_training_director_100098':{'id':'19', 'field_name':'Training Director', 'dataset_id':pdp_user_details[1]['dataset_id']},
+    'allowed_training_lead_100098':{'id':'20', 'field_name':'Training Lead', 'dataset_id':pdp_user_details[1]['dataset_id']},
+    'allowed_training_name_100098':{'id':'18', 'field_name':'Training Name', 'dataset_id':pdp_user_details[1]['dataset_id']},
+    'novartis_100098_evaluations_test_trainer_name':{'id':'26', 'field_name':'', 'dataset_id':pdp_user_details[0]['dataset_id']},
+    'novartis_100098_evaluations_test_trainer_name_updated':{'id':'27', 'field_name':'Trainer Name Updated', 'dataset_id':pdp_user_details[0]['dataset_id']},
+    'novartis_100098_evaluations_test_training_director':{'id':'28', 'field_name':'Training Director', 'dataset_id':pdp_user_details[0]['dataset_id']},
+    'novartis_100098_evaluations_test_training_lead':{'id':'29', 'field_name':'Training Lead', 'dataset_id':pdp_user_details[0]['dataset_id']},
+    'novartis_100098_evaluation_programs_consolidatedmaster_training_director':{'id':'23', 'field_name':'Training Director', 'dataset_id':pdp_user_details[2]['dataset_id']},
+    'novartis_100098_evaluation_programs_consolidatedmaster_training_lead':{'id':'24', 'field_name':'Training Lead', 'dataset_id':pdp_user_details[2]['dataset_id']},
+    'novartis_100098_evaluation_programs_consolidatedmaster_training_name':{'id':'25', 'field_name':'Training Name', 'dataset_id':pdp_user_details[2]['dataset_id']},
+}
+# apply_pdp_cl.create_domo_token(pdp_cur['inst'])
+
+# fetch the list of user attributes we created for looker embed users
+# for i in apply_pdp_cl.get_all_user_attributes():
+#     print('=====')
+#     # get attribute id from here
+#     print(i)
+#     print('=====')
+
+domo_ds = pd.read_csv('100098_Glue_Users [U][1] [Latest Metadata].csv', low_memory=False) # had to set to low_memory=False as DtypeWarning: Columns (8,19) have mixed types.
+
+
+df = pd.read_csv(pdp_cur['csv_name'])
+
+
 for i, pdp_read in df.iterrows():
     email = pdp_read.user_email
     group_name = "{}_{}".format(apply_pdp_cl.hostname,email)
@@ -140,7 +200,9 @@ for i, pdp_read in df.iterrows():
     # print('user_ref ===')
     # print(user_ref)
     # print('user_ref ===')
+    # check if the embed user exist in looker with the email
     if(len(user_ref) > 0):
+        # if yes: add the looker embed looker user to the looker group created for this embed looker user
         print('==== add_user_to_group =====')
         # print(user_ref.id,' , email = ', user_ref.email, ' , group_name = ', group_ref.name)
         # print(apply_pdp_cl.get_group_users(group_ref.id))
@@ -148,18 +210,47 @@ for i, pdp_read in df.iterrows():
         print('==== add_user_to_group =====')
     else:
         print('====not in looker=====')
+        u = domo_ds[domo_ds.Email == email]
+        print(u['User ID'].iloc[0])
         print('email = ', email, ' , group_name = ', group_ref.name)
-        print('====not in looker=====')
         
-# check if the embed user exist in looker with the email
-#   if yes: add the looker embed looker user to the looker group created for this embed looker user
-#   if no: create user from the LXP user id(refer domo U1 latest metadata dataset to get the userid and hit looker API passing the LXP user ID to create looker embed user)
-# add this embed looker user to the looker group we created
+        #if no: create user from the LXP user id(refer domo U1 latest metadata dataset to get the userid and hit looker API passing the LXP user ID to create looker embed user)
+        user_ref = apply_pdp_cl.create_embed_user(str(u['User ID'].iloc[0]))
+        
+        # add this embed looker user to the looker group we created
+        apply_pdp_cl.add_user_to_group(group_ref.id, user_ref.id)
+        print('====not in looker=====')
+    
+    # u_a_id = {v['id']:v['field_name'] for k,v in attribute_mapping.items()}
+    print('record attribute name - ',  pdp_read.pdp_filter_name)
+    print('pdp_name = ', pdp_read.pdp_name)
+    if pdp_read.pdp_filter_name is np.nan:
+        #   set group attribute val="%" to all the user attributes of the dataset_id for the group_ref
+        # apply_pdp_cl.apply_user_attribute_group_values( u_a_id, g_id, val)
+        print('set group attribute value as "%" for ', email)
+    else:
+        u_a_id = [v['id'] for k,v in attribute_mapping.items() if (v['dataset_id'] == pdp_read.dataset_id and v['field_name'] == pdp_read.pdp_filter_name) ]
+        print('user attribute ===', u_a_id)
+        ua_group_val_l = apply_pdp_cl.get_user_attribute_group_values(u_a_id[0])
+        print("ua_group_val_l ============ ",ua_group_val_l)
+        ua_group_val_l = [i for i in ua_group_val_l if i['group_id'] == group_ref.id]
+        print("after == ua_group_val_l ============ ",ua_group_val_l)
+        ua_group_value = ua_group_val_l[0]['value']
+        if "'" in ua_group_value:
+            val_to_apply = ua_group_value.split("','")
+            val_to_apply = val_to_apply.split("','")
+            val_to_apply = [i.replace("'", '') for i in val_to_apply ]
+            if pdp_read.pdp_value not in val_to_apply:
+                val_to_apply.append(pdp_read.pdp_value)
+                val_to_apply = ",".join(["'{}'".format(i) for i in val_to_apply])
+                print("added value applied to multiple vals ==== ", val_to_apply)
+        else:
+            #   add condition when the domo pdp val is not in the group user attribute value
+            if pdp_read.pdp_value not in ua_group_value:
+                #   combine value
+                val_to_apply = "'{}','{}'".format(ua_group_value,pdp_read.pdp_value)
+                print("combined value applied ==== ", val_to_apply)
+        #   get group referen ce{hostname}_{emailtest_before_@} 
+        #   set the value of this group from the users csv to the looker user attribute
 
-# fetch the list of user attributes we created for looker embed users from a csv using pandas dataframes
-# loop on the these users
-#   find the looker group we created with the name {hostname}_{emailtest_before_@} 
-#   set the value of this group from the users csv to the looker user attribute 
-
-
-
+    
