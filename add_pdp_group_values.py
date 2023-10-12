@@ -93,14 +93,12 @@ class ApplyPDPValues:
         self.card_metadata=get_card_metadata(self.domo_instance, domo_report_id, self.domo_token)
     
     def apply_user_attribute_group_values(self, u_a_id, g_id, val):
-        response = sdk.set_user_attribute_group_values(
-                    user_attribute_id=u_a_id,
-                    body=[
-                        mdls.UserAttributeGroupValue(
-                            group_id=g_id,
+        response = sdk.update_user_attribute_group_value(
+                        group_id=g_id,
+                        user_attribute_id=u_a_id,
+                        body=sdk_models_4.UserAttributeGroupValue(
                             value=val
-                        )
-                    ])
+                        ))
 
     def process_metadata_from_domo(self):
         self.refrmt_metadata = reformat_metadata(self.card_metadata[0])
@@ -150,13 +148,14 @@ pdp_user_details = [
 apply_pdp_cl = ApplyPDPValues()
 apply_pdp_cl.hostname = 'novartis' #suffix for group name
 apply_pdp_cl.instance_group_id = '46' #this is important as it will filter out users other than the instance group users
-pdp_cur = pdp_user_details[1]
+pdp_cur = pdp_user_details[0]
 
 attribute_mapping = {
     'allowed_trainer_name_updated_100098':{'id':'22', 'field_name':'Trainer Name Updated', 'dataset_id':pdp_user_details[1]['dataset_id']},
     'allowed_training_director_100098':{'id':'19', 'field_name':'Training Director', 'dataset_id':pdp_user_details[1]['dataset_id']},
     'allowed_training_lead_100098':{'id':'20', 'field_name':'Training Lead', 'dataset_id':pdp_user_details[1]['dataset_id']},
     'allowed_training_name_100098':{'id':'18', 'field_name':'Training Name', 'dataset_id':pdp_user_details[1]['dataset_id']},
+    'novartis_100098_evaluations_test_trainer_name':{'id':'26', 'field_name':'Training Name', 'dataset_id':pdp_user_details[0]['dataset_id']},
     'novartis_100098_evaluations_test_trainer_name_updated':{'id':'27', 'field_name':'Trainer Name Updated', 'dataset_id':pdp_user_details[0]['dataset_id']},
     'novartis_100098_evaluations_test_training_director':{'id':'28', 'field_name':'Training Director', 'dataset_id':pdp_user_details[0]['dataset_id']},
     'novartis_100098_evaluations_test_training_lead':{'id':'29', 'field_name':'Training Lead', 'dataset_id':pdp_user_details[0]['dataset_id']},
@@ -182,7 +181,6 @@ df = pd.read_csv(pdp_cur['csv_name'])
 for i, pdp_read in df.iterrows():
     email = pdp_read.user_email
     group_name = "{}_{}".format(apply_pdp_cl.hostname,email)
-    # print("="+group_name+'=')
     # check for the group name using looker API starting from {hostname}_{emailtest_before_@}
     group_ref = apply_pdp_cl.get_looker_group_reference(group_name)
     
@@ -190,11 +188,7 @@ for i, pdp_read in df.iterrows():
         # if not : create group with the name {hostname}_{emailtest_before_@} for each given email id list
         group_ref = apply_pdp_cl.create_group(group_name)
         
-    # print('group_ref ===')
-    # print(group_ref)
-    # print('group_ref ===')
-    
-#   if exists : execute next line
+    #   if exists : execute next line
     user_ref = apply_pdp_cl.get_user_by_email(email, apply_pdp_cl.instance_group_id)
     # print('user_ref ===')
     # print(user_ref)
@@ -219,8 +213,6 @@ for i, pdp_read in df.iterrows():
         apply_pdp_cl.add_user_to_group(group_ref.id, user_ref.id)
         print('====not in looker=====')
     
-    # print('domo pdp column name - ',  pdp_read.pdp_filter_name)
-    # print('pdp_read',pdp_read)
     #   check if the domo pdp value is null/nan, if its null which means this user has all rows enabled for pdp
     if pdp_read.pdp_filter_name is np.nan:
         #   set group attribute val="%" to all the user attributes of the dataset_id for the group_ref
@@ -237,8 +229,8 @@ for i, pdp_read in df.iterrows():
             print("email : ", email)
             print("pdp field name : ", pdp_read.pdp_filter_name)
             print("pdp value : ", '%')
+            apply_pdp_cl.apply_user_attribute_group_values( v['id'], group_ref.id, "%")
             print("===========applying % value to group in attributes===========")
-            # apply_pdp_cl.apply_user_attribute_group_values( v['id'], group_ref.id, "%")
 
     else: # this is the case where pdp has filter on column
         
@@ -250,16 +242,14 @@ for i, pdp_read in df.iterrows():
         u_a_id = list(u_a_id[0].items())[0]
         
         ua_group_val_l = apply_pdp_cl.get_user_attribute_group_values(u_a_id[0])
-        print("ua_group_val_l ============ ",ua_group_val_l)
         
         ua_group_val_l = [i for i in ua_group_val_l if str(i['group_id']) == str(group_ref.id)]
-        print("after == ua_group_val_l ============ ",ua_group_val_l)
 
         # if there are no group and its values added for the attribute, hence len(ua_group_val_l) will be 0
         if len(ua_group_val_l) == 0:
             print('pdp_name ===!!!!!! ua_group_val_l == 0 !!!!!==== ', pdp_read.pdp_name)
             
-            print("===========adding new group and its  values===========")
+            print("===========adding new group and its values===========")
             print("looker attribute id : ", u_a_id[0])
             print("looker attribute name : ", u_a_id[1])
             print("looker group id : ", group_ref.id)
@@ -268,12 +258,13 @@ for i, pdp_read in df.iterrows():
             print("email : ", email)
             print("pdp field name : ", pdp_read.pdp_filter_name)
             print("pdp value : ", pdp_read.pdp_value)
+            apply_pdp_cl.apply_user_attribute_group_values( u_a_id[0], group_ref.id, pdp_read.pdp_value)
             print("===========adding new group and its values===========")
-            # apply_pdp_cl.apply_user_attribute_group_values( v['id'], group_ref.id, "%")
         else:
         # this is the case where there are 1 to many values added for the group of a user
             ua_group_value = ua_group_val_l[0]['value']
             if "'" in ua_group_value:
+                # this is the case where there are many values added for the group of a user
                 val_to_apply = ua_group_value.split("','")
                 val_to_apply = [i.replace("'", '') for i in val_to_apply ]
                 if pdp_read.pdp_value not in val_to_apply:
@@ -289,8 +280,8 @@ for i, pdp_read in df.iterrows():
                     print("email : ", email)
                     print("pdp field name : ", pdp_read.pdp_filter_name)
                     print("pdp value : ", val_to_apply)
+                    apply_pdp_cl.apply_user_attribute_group_values( u_a_id[0], group_ref.id, val_to_apply)
                     print("===========concating values to existing===========")
-                    # apply_pdp_cl.apply_user_attribute_group_values( u_a_id[0], group_ref.id, val_to_apply)
                 else:
                     print("===========!!!!already presen!!!!===========")
                     print("looker attribute id : ", u_a_id[0])
@@ -303,9 +294,9 @@ for i, pdp_read in df.iterrows():
                     print("existing value : ", ua_group_value)
                     print("===========!!!!already present!!!!===========")
             else:
-                #   add condition when the domo pdp val is not in the group user attribute value
+                
                 if pdp_read.pdp_value not in ua_group_value:
-                    #   combine value
+                    #   this condition is where there is already 1 value and we are adding 1 more
                     val_to_apply = "'{}','{}'".format(ua_group_value,pdp_read.pdp_value)
                     print("===========adding more than 1 values to existing===========")
                     print("looker attribute id : ", u_a_id[0])
@@ -316,8 +307,8 @@ for i, pdp_read in df.iterrows():
                     print("email : ", email)
                     print("pdp field name : ", pdp_read.pdp_filter_name)
                     print("pdp value : ", val_to_apply)
+                    apply_pdp_cl.apply_user_attribute_group_values( u_a_id[0], group_ref.id, val_to_apply)
                     print("===========adding more than 1 values to existing===========")
-                    # apply_pdp_cl.apply_user_attribute_group_values( u_a_id[0], group_ref.id, val_to_apply)
                 else:
                     print("===========!!!!already presen!!!!===========")
                     print("looker attribute id : ", u_a_id[0])
@@ -329,7 +320,3 @@ for i, pdp_read in df.iterrows():
                     print("pdp field name : ", pdp_read.pdp_filter_name)
                     print("existing value : ", ua_group_value)
                     print("===========!!!!already present!!!!===========")
-            #   get group referen ce{hostname}_{emailtest_before_@} 
-            #   set the value of this group from the users csv to the looker user attribute
-
-    
