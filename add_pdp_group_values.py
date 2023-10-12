@@ -155,7 +155,7 @@ attribute_mapping = {
     'allowed_training_director_100098':{'id':'19', 'field_name':'Training Director', 'dataset_id':pdp_user_details[1]['dataset_id']},
     'allowed_training_lead_100098':{'id':'20', 'field_name':'Training Lead', 'dataset_id':pdp_user_details[1]['dataset_id']},
     'allowed_training_name_100098':{'id':'18', 'field_name':'Training Name', 'dataset_id':pdp_user_details[1]['dataset_id']},
-    'novartis_100098_evaluations_test_trainer_name':{'id':'26', 'field_name':'Training Name', 'dataset_id':pdp_user_details[0]['dataset_id']},
+    'novartis_100098_evaluations_test_training_name':{'id':'26', 'field_name':'Training Name', 'dataset_id':pdp_user_details[0]['dataset_id']},
     'novartis_100098_evaluations_test_trainer_name_updated':{'id':'27', 'field_name':'Trainer Name Updated', 'dataset_id':pdp_user_details[0]['dataset_id']},
     'novartis_100098_evaluations_test_training_director':{'id':'28', 'field_name':'Training Director', 'dataset_id':pdp_user_details[0]['dataset_id']},
     'novartis_100098_evaluations_test_training_lead':{'id':'29', 'field_name':'Training Lead', 'dataset_id':pdp_user_details[0]['dataset_id']},
@@ -181,6 +181,10 @@ df = pd.read_csv(pdp_cur['csv_name'])
 for i, pdp_read in df.iterrows():
     email = pdp_read.user_email
     group_name = "{}_{}".format(apply_pdp_cl.hostname,email)
+
+    #should skip if the pdp_read.pdp_filter_name is np.nan, add code in next iteration
+    
+
     # check for the group name using looker API starting from {hostname}_{emailtest_before_@}
     group_ref = apply_pdp_cl.get_looker_group_reference(group_name)
     
@@ -215,12 +219,12 @@ for i, pdp_read in df.iterrows():
     
     #   check if the domo pdp value is null/nan, if its null which means this user has all rows enabled for pdp
     if pdp_read.pdp_filter_name is np.nan:
-        #   set group attribute val="%" to all the user attributes of the dataset_id for the group_ref
-        print('pdp_name ===!!is nan!!==== ', pdp_read.pdp_name)
+        #   default value is already set for these user attributes, 
+        # '%, NULL' will be applied to all
         wildcard_att = {k:v for k,v in attribute_mapping.items() if v['dataset_id'] == pdp_read.dataset_id}
         for k,v in wildcard_att.items():
             print('wildcard_att == ',wildcard_att)
-            print("===========applying % value to group in attributes===========")
+            print("===========%, NULL value is already applied ===========")
             print("looker attribute id : ", v['id'])
             print("looker attribute name : ", k)
             print("looker group id : ", group_ref.id)
@@ -228,9 +232,8 @@ for i, pdp_read in df.iterrows():
             print("looker user id : ", user_ref.id)
             print("email : ", email)
             print("pdp field name : ", pdp_read.pdp_filter_name)
-            print("pdp value : ", '%')
-            apply_pdp_cl.apply_user_attribute_group_values( v['id'], group_ref.id, "%")
-            print("===========applying % value to group in attributes===========")
+            print("pdp value : ", '%, NULL')
+            print("===========NULL value is already applied===========")
 
     else: # this is the case where pdp has filter on column
         
