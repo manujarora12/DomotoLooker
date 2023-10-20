@@ -62,6 +62,7 @@ domo_bq_map = {
   "Quiz[U][2][Data Explorer]": "u2_quiz_data_explorer_part3_final_vw",
   "Users [U][2] [Assignment Status]": "u2_users_assignment_status_vw",
   "Users [U][2][LXP roles]": "u2_users_lxp_roles_vw",
+  "Users [U][2] [LXP roles]": "u2_users_lxp_roles_vw",
   "Users [U][2] [User Performance Data Explorer]": "u2_users_performance_part5_final_results_vw",
   "Users [U][2][Scorm Data Explorer]": "u2_users_scorm_data_explorer_vw",
   "Users [U][2][Skill and Learning goals]": "u2_users_skills_learninggoals_vw",
