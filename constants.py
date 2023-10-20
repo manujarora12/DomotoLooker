@@ -71,7 +71,10 @@ domo_bq_map = {
   "Users [U][3][User Funnel Data Explorer]": "u3_users_user_funnel_data_explorer_vw",
   "Users [U][3] [Structured Content Performance Data Explorer]": "u3_users_structured_content_performance_data_explorer_vw",
   "UserCards [U][0] [Core Event Data - Buffered]": "u0_usercards_event_vw",
-  "Users [U][1] [Latest Metadata]": "u1_users_latest_metadata_vw"
+  "Users [U][1] [Latest Metadata]": "u1_users_latest_metadata_vw",
+  "Channel Performance": "channel_performance_vw",
+  "Channel Content Performance": "channel_content_performance_vw"
+
 }
 
 
